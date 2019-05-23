@@ -69,7 +69,7 @@ def deletefile(page, version, token):
               'hide':'content',
               'ids':version,
               'token':token,
-              'reason':'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:RonBot/1/Run|disable]])'
+              'reason':'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:DeltaQuad/Imagerevdel/Run|disable]])'
               }
     print "deletefile.params"
     print "page.unprefixedtitle"#,page.unprefixedtitle
@@ -198,13 +198,13 @@ def main():
                         print 'handle check=no'
                         pagetext = addmanual(pagetext)
                         print "main.no.pagetext", pagetext
-                        pagepage.edit(text=pagetext, bot=True, summary="(Task 1) Requesting manual review ([[User:RonBot/1/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
                     if checksize(filep) == "Manual":
                         print 'handle checksize manual'
                         pagetext = addmanual(pagetext)
                         print "main.manual.pagetext", pagetext
-                        pagepage.edit(text=pagetext, bot=True, summary="(Task 1) Requesting manual review ([[User:RonBot/1/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
                 #Get a token
                 params = { 'action':'query', 'meta':'tokens' }
@@ -218,7 +218,7 @@ def main():
                 pagetext = re.sub(r'\n*\{\{(?:[Oo]rphaned non-free revisions|[Nn]on-free reduced).*}}', '', pagetext)
                 pagetext=pagetext.lstrip()
                 print "main.pagetext"
-                pagepage.edit(text=pagetext, bot=True, summary="(Task 1) Orphaned non-free file(s) deleted per [[WP:F5|F5]] ([[User:RonBot/1/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Orphaned non-free file(s) deleted per [[WP:F5|F5]] ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                 pnt ("Done for %s" % filep.unprefixedtitle) #For debugging
                 print
                 firstversion="no"
@@ -229,13 +229,13 @@ def main():
                 pagetext = re.sub(r'\n*\{\{(?:[Oo]rphaned non-free revisions|[Nn]on-free reduced).*}}', '', pagetext)
                 pagetext=pagetext.lstrip()
                 print "main.pagetext"
-                pagepage.edit(text=pagetext, bot=True, summary="(Task 1) Remove banner - nothing to delete ([[User:RonBot/1/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Remove banner - nothing to delete ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
 
         except Exception as e: #If there's an error, ignore the file
             print e
             pass
 def startAllowed():
-    textpage = page.Page(site, "User:RonBot/1/Run").getWikiText()
+    textpage = page.Page(site, "User:DeltaQuad/Imagerevdel/Run").getWikiText()
     if textpage == "Run":
         return "run"
     else:
