@@ -25,8 +25,9 @@ def findpages():
     params = {'action':'query',
               'list':'categorymembers',
               #'cmtitle':'Category:RonBotTest',
+              'cmnamespace':'6',
               'cmtitle':'Category:Non-free files with orphaned versions more than 7 days old',
-              'cmlimit':'max'
+              'cmlimit':'500'
               }
     req = api.APIRequest(site, params) #Set the API request
     res = req.query(False) #Send the API request and store the result in res
@@ -72,17 +73,28 @@ def abusechecks(page):
     req = api.APIRequest(site, params)
     res = req.query(False)
     pageid = res['query']['pages'].keys()[0]
-    timestamp = res['query']['pages'][pageid]['revisions'][1]['timestamp']
-    comment = res['query']['pages'][pageid]['revisions'][1]['comment']
-    pnt(comment)
-    if 'uploaded a new version of' in comment:
-        timestamp = datetime.datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
-        if timestamp < datetime.datetime.utcnow()-datetime.timedelta(days=7):
-            return "Yes"
-        else:
+    revisions=res['query']['pages'][pageid]['revisions']
+    #print revisions
+    lastuser=""
+    firstrev=True
+    for rev in revisions:
+        if firstrev:
+            firstrev=False
+            continue
+        timestamp = rev['timestamp']
+        comment = rev['comment']
+        user = rev['user']
+        if 'uploaded a new version of' in comment:
+            timestamp = datetime.datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
+            if timestamp < datetime.datetime.utcnow()-datetime.timedelta(days=7):
+                return "Yes"
+        if lastuser != user and ("bot" not in user.lower() and "bot" not in lastuser.lower()):
             return "No"
-    else:
-        return "No"
+        else:
+            lastuser=user
+    #timestamp = res['query']['pages'][pageid]['revisions'][1]['timestamp']
+    #comment = res['query']['pages'][pageid]['revisions'][1]['comment']
+    
 
 def checksize(page):
     params = {'action':'query',
@@ -101,12 +113,10 @@ def checksize(page):
     else:
         return True
 
-def addmanual(pagetext): #Just makes it a bit shorter
-    pnt (pagetext)
+def addmanual(pagetext,file): #Just makes it a bit shorter
     pagetext = re.sub(r'[Nn]on-free reduced', 'Orphaned non-free revisions', pagetext)
-    pnt (pagetext)
     pagetext = re.sub(r'(?P<Main>\{\{(?:[Oo]rphaned non-free revisions|[Nn]on-free reduced).*?(?=}}))', r'\g<Main>|human=yes', pagetext)
-    pnt (pagetext)
+    pnt("Requesting manual review on " + file)
     return pagetext
 
 def main():
@@ -132,18 +142,18 @@ def main():
                     #Stop if there's nobots
                     allow_bots(pagetext, "DeltaQuadBot")
                     skipcategories = page.Page(site, 'User:RonBot/1/FreeCategory').getWikiText().split("|")
-                    check = abusechecks(filep) #Check if file was uploaded 2 days ago 
+                    check = abusechecks(filep) #Check if file was uploaded 2 days ago
                     if any(skipcategory in pagepage.getCategories() for skipcategory in skipcategories):
                         print "One of the potentially free categories were found. Skipping."
                         check="No"
                     if pagetext.find('|human=yes')>0:
                         break#Manual already set - no more to do
                     if check == "No":
-                        pagetext = addmanual(pagetext)
+                        pagetext = addmanual(pagetext,filep.unprefixedtitle)
                         pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
-                    if checksize(filep) == "Manual":
-                        pagetext = addmanual(pagetext)
+                    if  (filep) == "Manual":
+                        pagetext = addmanual(pagetext,filep.unprefixedtitle)
                         pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
                 #Get a token
@@ -155,7 +165,7 @@ def main():
                 pagetext = re.sub(r'\n*\{\{(?:[Oo]rphaned non-free revisions|[Nn]on-free reduced).*}}', '', pagetext)
                 pagetext=pagetext.lstrip()
                 pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Orphaned non-free file(s) deleted per [[WP:F5|F5]] ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
-                pnt ("Done for %s" % filep.unprefixedtitle) #For debugging
+                pnt ("Revdel complete for %s" % filep.unprefixedtitle) #For debugging
                 firstversion="no"
             else:
                 pagepage = page.Page(site, filep.unprefixedtitle) #Hacky workaround since File and Page are different types in the module
