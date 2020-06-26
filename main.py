@@ -52,7 +52,7 @@ def deletefile(page, version, token):
               'hide':'content',
               'ids':version,
               'token':token,
-              'reason':'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:DeltaQuad/Imagerevdel/Run|disable]])'
+              'reason':'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])'
               }
     api.APIRequest(site, params).query() #Actually delete it  (DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
     return #Stop the function, ready for the next
@@ -143,17 +143,17 @@ def main():
                     if check == "No":
                         if pagetext.find('|human=yes')>0:break#Manual already set - no more to do
                         pagetext = addmanual(pagetext,filep.unprefixedtitle)
-                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
                     if check == "free":
                         if pagetext.find('|human=yes')>0:break#Manual already set - no more to do
                         pagetext = addmanual(pagetext,filep.unprefixedtitle)
-                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review - Free file conflict ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review - Free file conflict ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
                     if  (filep) == "Manual":
                         if pagetext.find('|human=yes')>0:break#Manual already set - no more to do
                         pagetext = addmanual(pagetext,filep.unprefixedtitle)
-                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
                 #Get a token
                 params = { 'action':'query', 'meta':'tokens' }
@@ -163,7 +163,7 @@ def main():
                 #Remove tag
                 pagetext = re.sub(r'\n*\{\{(?:[Oo]rphaned non-free revisions|[Nn]on-free reduced).*}}', '', pagetext)
                 pagetext=pagetext.lstrip()
-                pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Orphaned non-free file(s) deleted per [[WP:F5|F5]] ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Orphaned non-free file(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                 pnt ("Revdel complete for %s" % filep.unprefixedtitle) #For debugging
                 firstversion="no"
             else:
@@ -171,13 +171,13 @@ def main():
                 pagetext = pagepage.getWikiText() 
                 pagetext = re.sub(r'\n*\{\{(?:[Oo]rphaned non-free revisions|[Nn]on-free reduced).*}}', '', pagetext)
                 pagetext=pagetext.lstrip()
-                pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Remove banner - nothing to delete ([[User:DeltaQuad/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Remove banner - nothing to delete ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
 
         except Exception as e: #If there's an error, ignore the file
             print e
             pass
 def startAllowed():
-    textpage = page.Page(site, "User:DeltaQuad/Imagerevdel/Run").getWikiText()
+    textpage = page.Page(site, "User:AmandaNP/Imagerevdel/Run").getWikiText()
     if textpage == "Run":
         return "run"
     else:
