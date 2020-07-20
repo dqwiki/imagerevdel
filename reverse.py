@@ -20,7 +20,7 @@ def findpages():
               #'cmtitle':'Category:RonBotTest',
               'cmnamespace':'6',
               'cmtitle':'Category:Non-free files with orphaned versions more than 7 days old',
-              'cmdir':'desc'
+              'cmdir':'desc',
               'cmlimit':'500'
               }
     req = api.APIRequest(site, params) #Set the API request
