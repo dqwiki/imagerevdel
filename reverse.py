@@ -41,8 +41,11 @@ def versiontodelete(page):
     whattodel = res['query']['pages'][0]['imageinfo'][1:] #Go into specifics, ignore first result (DatBot's reduced version)
     for result in whattodel:
          if 'filehidden' in result:
-             del result ['filehidden'] #Remove any "filehidden" results param1
-             del result ['archivename'] #Remove any "filehidden" results param2
+             try:
+                 del result ['filehidden'] #Remove any "filehidden" results param1
+                 del result ['archivename'] #Remove any "filehidden" results param2
+             except:
+                 print "Mini error"
              whattodel = filter(None, whattodel) # Remove empty results
     return whattodel
 
