@@ -38,7 +38,8 @@ def versiontodelete(page):
         'action': 'query',
         'prop': 'imageinfo',
         'titles': page.name,
-        'iiprop': 'archivename',
+        # Include timestamp so we can supply it to revisiondelete later
+        'iiprop': 'archivename|timestamp',
         'iilimit': 'max',
         'formatversion': '2',
     }
@@ -47,26 +48,28 @@ def versiontodelete(page):
     whattodel = res['query']['pages'][0]['imageinfo'][1:] #Go into specifics, ignore first result (DatBot's reduced version)
     for result in whattodel:
          if 'filehidden' in result:
-             try:
-                 del result ['filehidden'] #Remove any "filehidden" results param1
-                 del result ['archivename'] #Remove any "filehidden" results param2
-             except:
+            try:
+                del result['filehidden']  # Remove any "filehidden" results param1
+                del result['archivename']  # Remove any "filehidden" results param2
+            except:
                 pnt("Mini error")
-             whattodel = list(filter(None, whattodel)) # Remove empty results
+            whattodel = list(filter(None, whattodel))  # Remove empty results
     pnt(f"versiontodelete: {len(whattodel)} revisions to check")
     return whattodel
 
-def deletefile(page, version, token):
+def deletefile(page, archivename, token):
+    # revisiondelete for file revisions requires the timestamp as the id
+    timestamp = archivename.split('!')[0]
     params = {
         'target': page.name,
         'type': 'oldimage',
         'hide': 'content',
-        'ids': version,
+        'ids': timestamp,
         'token': token,
         'reason': 'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])',
     }
-    pnt(f"deletefile: deleting {page.page_title} revision {version}")
-    site.post('revisiondelete', **params)  # Actually delete it  (DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+    pnt(f"deletefile: deleting {page.page_title} revision {timestamp}")
+    site.post('revisiondelete', **params)  # Actually delete it (disabled until approval)
     return  # Stop the function, ready for the next
 
 def abusechecks(page):
