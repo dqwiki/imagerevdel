@@ -45,8 +45,8 @@ def versiontodelete(page):
                  del result ['filehidden'] #Remove any "filehidden" results param1
                  del result ['archivename'] #Remove any "filehidden" results param2
              except:
-                 print "Mini error"
-             whattodel = filter(None, whattodel) # Remove empty results
+                print("Mini error")
+             whattodel = list(filter(None, whattodel)) # Remove empty results
     return whattodel
 
 def deletefile(page, version, token):
@@ -69,7 +69,7 @@ def abusechecks(page):
               }
     req = api.APIRequest(site, params)
     res = req.query(False)
-    pageid = res['query']['pages'].keys()[0]
+    pageid = next(iter(res['query']['pages']))
     revisions=res['query']['pages'][pageid]['revisions']
     #print revisions
     lastuser=""
@@ -106,7 +106,7 @@ def checksize(page):
     pixel = res['query']['pages'][0]['imageinfo'][0]['width'] * res['query']['pages'][0]['imageinfo'][0]['height']
     if pixel > 105000:
     #if (res['query']['pages'][0]['imageinfo'][0]['width'] > 400) and (res['query']['pages'][0]['imageinfo'][0]['height'] > 400):
-        print 'chacksize manual'
+        print('chacksize manual')
         return "Manual"
     else:
         return True
@@ -142,7 +142,7 @@ def main():
                     skipcategories = page.Page(site, 'User:RonBot/1/FreeCategory').getWikiText().split("|")
                     check = abusechecks(filep) #Check if file was uploaded 2 days ago
                     if any(skipcategory in pagepage.getCategories() for skipcategory in skipcategories):
-                        print "One of the potentially free categories were found. Skipping."
+                        print("One of the potentially free categories were found. Skipping.")
                         check="free"
                     if check == "No":
                         if pagetext.find('|human=yes')>0:break#Manual already set - no more to do
@@ -178,7 +178,7 @@ def main():
                 pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Remove banner - nothing to delete ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
 
         except Exception as e: #If there's an error, ignore the file
-            print e
+            print(e)
             pass
 def startAllowed():
     textpage = page.Page(site, "User:AmandaNP/Imagerevdel/Run").getWikiText()

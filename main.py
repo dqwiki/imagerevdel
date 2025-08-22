@@ -46,7 +46,7 @@ def versiontodelete(page):
                 del result ['archivename'] #Remove any "filehidden" results param2
             except:
                 print("Mini error")
-            whattodel = filter(None, whattodel) # Remove empty results
+            whattodel = list(filter(None, whattodel)) # Remove empty results
     return whattodel
 
 def deletefile(page, version, token):
@@ -69,7 +69,7 @@ def abusechecks(page):
               }
     req = api.APIRequest(site, params)
     res = req.query(False)
-    pageid = res['query']['pages'].keys()[0]
+    pageid = next(iter(res['query']['pages']))
     revisions=res['query']['pages'][pageid]['revisions']
     #print revisions
     lastuser=""
