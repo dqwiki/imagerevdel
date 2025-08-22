@@ -70,6 +70,7 @@ def deletefile(page, archivename, token):
         'reason': 'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])',
     }
     pnt(f"deletefile: deleting {page.page_title} revision {timestamp}")
+    print(json.dumps(params, indent=2, ensure_ascii=False))
     site.post('revisiondelete', **params)  # Actually delete it (disabled until approval)
     return  # Stop the function, ready for the next
 
