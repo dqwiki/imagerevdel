@@ -91,8 +91,10 @@ def abusechecks(page):
         comment = rev['comment']
         user = rev['user']
         if 'uploaded a new version of' in comment:
-            timestamp = datetime.datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
-            if timestamp < datetime.datetime.utcnow()-datetime.timedelta(days=7):
+            timestamp = datetime.datetime.strptime(
+                timestamp, '%Y-%m-%dT%H:%M:%SZ'
+            ).replace(tzinfo=datetime.UTC)
+            if timestamp < datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=7):
                 return "Yes"
         if lastuser == user:continue
         if lastuser != user and ("bot" not in user.lower() and "bot" not in lastuser.lower()):
@@ -172,7 +174,7 @@ def main():
                         pagetext = addmanual(pagetext,filep.name)
                         pagepage.edit(text=pagetext, summary="(Image Revdel) Requesting manual review ([[User:AmandaNP/Imagerevdel/Run|disable]])", bot=True) #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
-                token = site.tokens['csrf']
+                token = site.get_token('csrf')
                 #Delete the revision
                 deletefile(filep, version, token)
                 #Remove tag
