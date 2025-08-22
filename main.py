@@ -1,13 +1,13 @@
 import time, datetime, urllib, json, warnings, re, mwparserfromhell
 import mwclient
-import login #Bot password
+import login  # Bot password
 
 site = mwclient.Site('en.wikipedia.org', path='/w/')
 site.login(login.username, login.password)
 
 DEBUG = True  # Set to False to silence debug output
 
-# routine to autoswitch some of the output - as filenames in, say, filep.unprefixedtitle have accented chars!
+# routine to autoswitch some of the output - as filenames in, say, filep.page_title have accented chars!
 
 def pnt(s):
     if not DEBUG:
@@ -20,56 +20,62 @@ def pnt(s):
 #Find pages to delete
 def findpages():
     #parameters for API request
-    params = {'action':'query',
-              'list':'categorymembers',
-              #'cmtitle':'Category:RonBotTest',
-              'cmnamespace':'6',
-              'cmtitle':'Category:Non-free files with orphaned versions more than 7 days old',
-              'cmlimit':'500'
-              }
-    req = api.APIRequest(site, params) #Set the API request
-    res = req.query(False) #Send the API request and store the result in res
-    touse = pagelist.listFromQuery(site, res['query']['categorymembers']) #Make a list
+    params = {
+        'action': 'query',
+        'list': 'categorymembers',
+        #'cmtitle':'Category:RonBotTest',
+        'cmnamespace': '6',
+        'cmtitle': 'Category:Non-free files with orphaned versions more than 7 days old',
+        'cmlimit': '500',
+    }
+    res = site.api(**params)  # Send the API request and store the result
+    touse = [site.pages[page['title']] for page in res['query']['categorymembers']]
     pnt(f"findpages: found {len(touse)} pages to process")
     return touse
 
 def versiontodelete(page):
-    params = {'action':'query',
-              'prop':'imageinfo',
-              'titles':page.name,
-              'iiprop':'archivename',
-              'iilimit':'max',
-              'formatversion':'2',
-              }
-    pnt(f"versiontodelete: fetching revisions for {page.unprefixedtitle}")
-    req = api.APIRequest(site, params)
-    res = req.query(False)
+    params = {
+        'action': 'query',
+        'prop': 'imageinfo',
+        'titles': page.name,
+        # Need both the archive name and timestamp; archivename is used for
+        # bookkeeping while the timestamp is required by revisiondelete.
+        'iiprop': 'archivename|timestamp',
+        'iilimit': 'max',
+        'formatversion': '2',
+    }
+    pnt(f"versiontodelete: fetching revisions for {page.page_title}")
+    res = site.api(**params)
     whattodel = res['query']['pages'][0]['imageinfo'][1:] #Go into specifics, ignore first result (DatBot's reduced version)
     for result in whattodel:
         if 'filehidden' in result:
             pnt(result)
             try:
-                del result ['filehidden'] #Remove any "filehidden" results param1
-                del result ['archivename'] #Remove any "filehidden" results param2
+                del result['filehidden']  # Remove any "filehidden" results param1
+                del result['archivename']  # Remove any "filehidden" results param2
             except:
                 pnt("Mini error")
             whattodel = list(filter(None, whattodel)) # Remove empty results
     pnt(f"versiontodelete: {len(whattodel)} revisions to check")
     return whattodel
 
-def deletefile(page, version, token):
+def deletefile(page, archivename, token):
+    # revisiondelete for oldimage revisions expects the timestamp portion of the
+    # archive name as the identifier. The value returned from imageinfo is in the
+    # form "<timestamp>!<filename>", so split on "!" to extract the timestamp.
+    timestamp = archivename.split('!')[0]
     params = {
-              'action':'revisiondelete',
-              'target':page.name,
-              'type':'oldimage',
-              'hide':'content',
-              'ids':version,
-              'token':token,
-              'reason':'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])',
-              }
-    pnt(f"deletefile: deleting {page.unprefixedtitle} revision {version}")
-    api.APIRequest(site, params).query() #Actually delete it  (DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
-    return #Stop the function, ready for the next
+        'target': page.name,
+        'type': 'oldimage',
+        'hide': 'content',
+        'ids': timestamp,
+        'token': token,
+        'reason': 'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])',
+    }
+    pnt(f"deletefile: deleting {page.page_title} revision {timestamp}")
+    print(json.dumps(params, indent=2, ensure_ascii=False))
+    site.post('revisiondelete', **params)  # Actually delete it (disabled until approval)
+    return  # Stop the function, ready for the next
 
 def abusechecks(page):
     params = {'action':'query',
@@ -91,8 +97,10 @@ def abusechecks(page):
         comment = rev['comment']
         user = rev['user']
         if 'uploaded a new version of' in comment:
-            timestamp = datetime.datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
-            if timestamp < datetime.datetime.utcnow()-datetime.timedelta(days=7):
+            timestamp = datetime.datetime.strptime(
+                timestamp, '%Y-%m-%dT%H:%M:%SZ'
+            ).replace(tzinfo=datetime.UTC)
+            if timestamp < datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=7):
                 return "Yes"
         if lastuser == user:continue
         if lastuser != user and ("bot" not in user.lower() and "bot" not in lastuser.lower()):
@@ -136,12 +144,12 @@ def main():
         try: #Try to delete the old revision(s)
             if filep.name == "Category:Non-free files with orphaned versions more than 7 days old needing human review": #Skip category thing
                 continue
-            pnt(f"Processing {filep.unprefixedtitle}")
+            pnt(f"Processing {filep.page_title}")
             todelete = versiontodelete(filep)
-            pnt(f"Found {len(todelete)} revisions for {filep.unprefixedtitle}")
+            pnt(f"Found {len(todelete)} revisions for {filep.page_title}")
             firstversion="yes"
             for version in todelete:
-                version = re.sub(r'([^!]*)!.*', r'\1', version['archivename'])
+                version = version['archivename']
                 go = startAllowed() #Check if task is enabled
                 if go == "no":
                     tobreak = "yes"
@@ -153,7 +161,8 @@ def main():
                     allow_bots(pagetext, "DeltaQuadBot")
                     skipcategories = site.pages['User:RonBot/1/FreeCategory'].text().split("|")
                     check = abusechecks(filep) #Check if file was uploaded 2 days ago
-                    if any(skipcategory in pagepage.getCategories() for skipcategory in skipcategories):
+                    page_categories = {cat.name for cat in pagepage.categories()}
+                    if any(skipcategory in page_categories for skipcategory in skipcategories):
                         pnt("One of the potentially free categories were found. Skipping.")
                         check="free"
                     if check == "No":
@@ -171,7 +180,7 @@ def main():
                         pagetext = addmanual(pagetext,filep.name)
                         pagepage.edit(text=pagetext, summary="(Image Revdel) Requesting manual review ([[User:AmandaNP/Imagerevdel/Run|disable]])", bot=True) #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
-                token = site.tokens['csrf']
+                token = site.get_token('csrf')
                 #Delete the revision
                 deletefile(filep, version, token)
                 #Remove tag
