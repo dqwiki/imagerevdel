@@ -65,6 +65,7 @@ def deletefile(page, archivename, token):
     # form "<timestamp>!<filename>", so split on "!" to extract the timestamp.
     timestamp = archivename.split('!')[0]
     params = {
+        'action': 'revisiondelete',
         'target': page.name,
         'type': 'oldimage',
         'hide': 'content',

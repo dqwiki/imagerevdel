@@ -61,6 +61,7 @@ def deletefile(page, archivename, token):
     # revisiondelete for file revisions requires the timestamp as the id
     timestamp = archivename.split('!')[0]
     params = {
+        'action': 'revisiondelete',
         'target': page.name,
         'type': 'oldimage',
         'hide': 'content',
