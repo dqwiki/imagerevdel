@@ -5,8 +5,12 @@ import login #Bot password
 site = mwclient.Site('en.wikipedia.org', path='/w/')
 site.login(login.username, login.password)
 
-#routine to autoswitch some of the output - as filenames in, say, filep.name have accented chars!
+DEBUG = True  # Set to False to silence debug output
+
+# routine to autoswitch some of the output - as filenames in, say, filep.unprefixedtitle have accented chars!
 def pnt(s):
+    if not DEBUG:
+        return
     try:
         print(s)
     except UnicodeEncodeError:
@@ -22,9 +26,10 @@ def findpages():
               'cmtitle':'Category:Non-free files with orphaned versions more than 7 days old',
               'cmdir':'desc',
               'cmlimit':'500'
-              }
-    res = site.api(**params)
-    touse = [site.pages[cm['title']] for cm in res['query']['categorymembers']]
+    req = api.APIRequest(site, params) #Set the API request
+    res = req.query(False) #Send the API request and store the result in res
+    touse = pagelist.listFromQuery(site, res['query']['categorymembers']) #Make a list
+    pnt(f"findpages: found {len(touse)} pages to process")
     return touse
 
 def versiontodelete(page):
@@ -35,7 +40,9 @@ def versiontodelete(page):
               'iilimit':'max',
               'formatversion':'2',
               }
-    res = site.api(**params)
+    pnt(f"versiontodelete: fetching revisions for {page.unprefixedtitle}")
+    req = api.APIRequest(site, params)
+    res = req.query(False)
     whattodel = res['query']['pages'][0]['imageinfo'][1:] #Go into specifics, ignore first result (DatBot's reduced version)
     for result in whattodel:
          if 'filehidden' in result:
@@ -43,8 +50,9 @@ def versiontodelete(page):
                  del result ['filehidden'] #Remove any "filehidden" results param1
                  del result ['archivename'] #Remove any "filehidden" results param2
              except:
-                print("Mini error")
+                pnt("Mini error")
              whattodel = list(filter(None, whattodel)) # Remove empty results
+    pnt(f"versiontodelete: {len(whattodel)} revisions to check")
     return whattodel
 
 def deletefile(page, version, token):
@@ -57,7 +65,8 @@ def deletefile(page, version, token):
               'token':token,
               'reason':'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])',
               }
-    site.post(**params) #Actually delete it  (DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+    pnt(f"deletefile: deleting {page.unprefixedtitle} revision {version}")
+    api.APIRequest(site, params).query() #Actually delete it  (DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
     return #Stop the function, ready for the next
 
 def abusechecks(page):
@@ -103,7 +112,7 @@ def checksize(page):
     pixel = res['query']['pages'][0]['imageinfo'][0]['width'] * res['query']['pages'][0]['imageinfo'][0]['height']
     if pixel > 105000:
     #if (res['query']['pages'][0]['imageinfo'][0]['width'] > 400) and (res['query']['pages'][0]['imageinfo'][0]['height'] > 400):
-        print('chacksize manual')
+        pnt('chacksize manual')
         return "Manual"
     else:
         return True
@@ -115,15 +124,19 @@ def addmanual(pagetext,file): #Just makes it a bit shorter
     return pagetext
 
 def main():
+    pnt("main: starting run")
     tobreak = "no"
     pages = findpages()
+    pnt(f"main: {len(pages)} pages to process")
     for filep in pages: #For page in the list
         if tobreak == "yes":
             break
         try: #Try to delete the old revision(s)
             if filep.name == "Category:Non-free files with orphaned versions more than 7 days old needing human review": #Skip category thing
                 continue
+            pnt(f"Processing {filep.unprefixedtitle}")
             todelete = versiontodelete(filep)
+            pnt(f"Found {len(todelete)} revisions for {filep.unprefixedtitle}")
             firstversion="yes"
             for version in todelete:
                 version = re.sub(r'([^!]*)!.*', r'\1', version['archivename'])
@@ -138,8 +151,8 @@ def main():
                     allow_bots(pagetext, "DeltaQuadBot")
                     skipcategories = site.pages['User:RonBot/1/FreeCategory'].text().split("|")
                     check = abusechecks(filep) #Check if file was uploaded 2 days ago
-                    if any(skipcategory in [cat.name for cat in pagepage.categories()] for skipcategory in skipcategories):
-                        print("One of the potentially free categories were found. Skipping.")
+                    if any(skipcategory in pagepage.getCategories() for skipcategory in skipcategories):
+                        pnt("One of the potentially free categories were found. Skipping.")
                         check="free"
                     if check == "No":
                         if pagetext.find('|human=yes')>0:break#Manual already set - no more to do
