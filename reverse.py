@@ -1,13 +1,13 @@
 import time, datetime, urllib, json, warnings, re, mwparserfromhell
-import mwclient
+from wikitools import *
 import login #Bot password
 
-site = mwclient.Site('en.wikipedia.org', path='/w/')
-site.login(login.username, login.password)
+site = wiki.Wiki() #Tell Python to use the English Wikipedia's API
+site.login(login.username, login.password) #login
 
 DEBUG = True  # Set to False to silence debug output
 
-# routine to autoswitch some of the output - as filenames in, say, filep.name have accented chars!
+# routine to autoswitch some of the output - as filenames in, say, filep.unprefixedtitle have accented chars!
 def pnt(s):
     if not DEBUG:
         return
@@ -27,21 +27,23 @@ def findpages():
               'cmdir':'desc',
               'cmlimit':'500'
               }
-    res = site.api(**params)
-    touse = [site.pages[cm['title']] for cm in res['query']['categorymembers']]
+    req = api.APIRequest(site, params) #Set the API request
+    res = req.query(False) #Send the API request and store the result in res
+    touse = pagelist.listFromQuery(site, res['query']['categorymembers']) #Make a list
     pnt(f"findpages: found {len(touse)} pages to process")
     return touse
 
 def versiontodelete(page):
     params = {'action':'query',
               'prop':'imageinfo',
-              'titles':page.name,
+              'titles':page.unprefixedtitle,
               'iiprop':'archivename',
               'iilimit':'max',
               'formatversion':'2',
               }
-    pnt(f"versiontodelete: fetching revisions for {page.name}")
-    res = site.api(**params)
+    pnt(f"versiontodelete: fetching revisions for {page.unprefixedtitle}")
+    req = api.APIRequest(site, params)
+    res = req.query(False)
     whattodel = res['query']['pages'][0]['imageinfo'][1:] #Go into specifics, ignore first result (DatBot's reduced version)
     for result in whattodel:
          if 'filehidden' in result:
@@ -55,26 +57,26 @@ def versiontodelete(page):
     return whattodel
 
 def deletefile(page, version, token):
-    params = {
-              'action':'revisiondelete',
-              'target':page.name,
+    params = {'action':'revisiondelete',
+              'target':page.unprefixedtitle,
               'type':'oldimage',
               'hide':'content',
               'ids':version,
               'token':token,
-              'reason':'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])',
+              'reason':'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])'
               }
-    pnt(f"deletefile: deleting {page.name} revision {version}")
-    site.post(**params) #Actually delete it  (DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+    pnt(f"deletefile: deleting {page.unprefixedtitle} revision {version}")
+    api.APIRequest(site, params).query() #Actually delete it  (DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
     return #Stop the function, ready for the next
 
 def abusechecks(page):
     params = {'action':'query',
               'prop':'revisions',
-              'titles':page.name,
+              'titles':page.unprefixedtitle,
               'rvlimit':'10'
               }
-    res = site.api(**params)
+    req = api.APIRequest(site, params)
+    res = req.query(False)
     pageid = next(iter(res['query']['pages']))
     revisions=res['query']['pages'][pageid]['revisions']
     #print revisions
@@ -103,11 +105,12 @@ def abusechecks(page):
 def checksize(page):
     params = {'action':'query',
               'prop':'imageinfo',
-              'titles':page.name,
+              'titles':page.unprefixedtitle,
               'formatversion':'2',
               'iiprop':'size'
               }
-    res = site.api(**params)
+    req = api.APIRequest(site, params)
+    res = req.query(False)
     pixel = res['query']['pages'][0]['imageinfo'][0]['width'] * res['query']['pages'][0]['imageinfo'][0]['height']
     if pixel > 105000:
     #if (res['query']['pages'][0]['imageinfo'][0]['width'] > 400) and (res['query']['pages'][0]['imageinfo'][0]['height'] > 400):
@@ -131,11 +134,11 @@ def main():
         if tobreak == "yes":
             break
         try: #Try to delete the old revision(s)
-            if filep.name == "Category:Non-free files with orphaned versions more than 7 days old needing human review": #Skip category thing
+            if filep.unprefixedtitle == "Category:Non-free files with orphaned versions more than 7 days old needing human review": #Skip category thing
                 continue
-            pnt(f"Processing {filep.name}")
+            pnt(f"Processing {filep.unprefixedtitle}")
             todelete = versiontodelete(filep)
-            pnt(f"Found {len(todelete)} revisions for {filep.name}")
+            pnt(f"Found {len(todelete)} revisions for {filep.unprefixedtitle}")
             firstversion="yes"
             for version in todelete:
                 version = re.sub(r'([^!]*)!.*', r'\1', version['archivename'])
@@ -144,51 +147,53 @@ def main():
                     tobreak = "yes"
                     break
                 if firstversion == "yes":
-                    pagepage = site.pages[filep.name]
-                    pagetext = pagepage.text()
+                    pagepage = page.Page(site, filep.unprefixedtitle) #Hacky workaround since File and Page are different types in the module
+                    pagetext = pagepage.getWikiText() 
                     #Stop if there's nobots
                     allow_bots(pagetext, "DeltaQuadBot")
-                    skipcategories = site.pages['User:RonBot/1/FreeCategory'].text().split("|")
+                    skipcategories = page.Page(site, 'User:RonBot/1/FreeCategory').getWikiText().split("|")
                     check = abusechecks(filep) #Check if file was uploaded 2 days ago
-                    if any(skipcategory in [cat.name for cat in pagepage.categories()] for skipcategory in skipcategories):
+                    if any(skipcategory in pagepage.getCategories() for skipcategory in skipcategories):
                         pnt("One of the potentially free categories were found. Skipping.")
                         check="free"
                     if check == "No":
                         if pagetext.find('|human=yes')>0:break#Manual already set - no more to do
-                        pagetext = addmanual(pagetext,filep.name)
-                        pagepage.edit(text=pagetext, summary="(Image Revdel) Requesting manual review ([[User:AmandaNP/Imagerevdel/Run|disable]])", bot=True) #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                        pagetext = addmanual(pagetext,filep.unprefixedtitle)
+                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
                     if check == "free":
                         if pagetext.find('|human=yes')>0:break#Manual already set - no more to do
-                        pagetext = addmanual(pagetext,filep.name)
-                        pagepage.edit(text=pagetext, summary="(Image Revdel) Requesting manual review - Free file conflict ([[User:AmandaNP/Imagerevdel/Run|disable]])", bot=True) #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                        pagetext = addmanual(pagetext,filep.unprefixedtitle)
+                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review - Free file conflict ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
                     if  (filep) == "Manual":
                         if pagetext.find('|human=yes')>0:break#Manual already set - no more to do
-                        pagetext = addmanual(pagetext,filep.name)
-                        pagepage.edit(text=pagetext, summary="(Image Revdel) Requesting manual review ([[User:AmandaNP/Imagerevdel/Run|disable]])", bot=True) #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                        pagetext = addmanual(pagetext,filep.unprefixedtitle)
+                        pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Requesting manual review ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
                         break #- leave for loop as we only want one entry - there may be multple versions to delete
-                token = site.tokens['csrf']
+                #Get a token
+                params = { 'action':'query', 'meta':'tokens' }
+                token = api.APIRequest(site, params).query()['query']['tokens']['csrftoken']
                 #Delete the revision
                 deletefile(filep, version, token)
                 #Remove tag
                 pagetext = re.sub(r'\n*\{\{(?:[Oo]rphaned non-free revisions|[Nn]on-free reduced).*}}', '', pagetext)
                 pagetext=pagetext.lstrip()
-                pagepage.edit(text=pagetext, summary="(Image Revdel) Orphaned non-free file(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])", bot=True) #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
-                pnt ("Revdel complete for %s" % filep.name) #For debugging
+                pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Orphaned non-free file(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                pnt ("Revdel complete for %s" % filep.unprefixedtitle) #For debugging
                 firstversion="no"
             else:
-                pagepage = site.pages[filep.name]
-                pagetext = pagepage.text()
+                pagepage = page.Page(site, filep.unprefixedtitle) #Hacky workaround since File and Page are different types in the module
+                pagetext = pagepage.getWikiText() 
                 pagetext = re.sub(r'\n*\{\{(?:[Oo]rphaned non-free revisions|[Nn]on-free reduced).*}}', '', pagetext)
                 pagetext=pagetext.lstrip()
-                pagepage.edit(text=pagetext, summary="(Image Revdel) Remove banner - nothing to delete ([[User:AmandaNP/Imagerevdel/Run|disable]])", bot=True) #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+                pagepage.edit(text=pagetext, bot=True, summary="(Image Revdel) Remove banner - nothing to delete ([[User:AmandaNP/Imagerevdel/Run|disable]])") #(DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
 
         except Exception as e: #If there's an error, ignore the file
             print(e)
             pass
 def startAllowed():
-    textpage = site.pages["User:AmandaNP/Imagerevdel/Run"].text()
+    textpage = page.Page(site, "User:AmandaNP/Imagerevdel/Run").getWikiText()
     if textpage == "Run":
         return "run"
     else:
