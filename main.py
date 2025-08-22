@@ -59,7 +59,6 @@ def versiontodelete(page):
 
 def deletefile(page, version, token):
     params = {
-        'action': 'revisiondelete',
         'target': page.name,
         'type': 'oldimage',
         'hide': 'content',
@@ -143,7 +142,7 @@ def main():
             pnt(f"Found {len(todelete)} revisions for {filep.page_title}")
             firstversion="yes"
             for version in todelete:
-                version = re.sub(r'([^!]*)!.*', r'\1', version['archivename'])
+                version = version['archivename']
                 go = startAllowed() #Check if task is enabled
                 if go == "no":
                     tobreak = "yes"
