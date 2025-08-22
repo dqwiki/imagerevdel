@@ -1,6 +1,6 @@
 import time, datetime, urllib, json, warnings, re, mwparserfromhell
 import mwclient
-import login #Bot password
+import login  # Bot password
 
 site = mwclient.Site('en.wikipedia.org', path='/w/')
 site.login(login.username, login.password)
@@ -19,30 +19,31 @@ def pnt(s):
 #Find pages to delete
 def findpages():
     #parameters for API request
-    params = {'action':'query',
-              'list':'categorymembers',
-              #'cmtitle':'Category:RonBotTest',
-              'cmnamespace':'6',
-              'cmtitle':'Category:Non-free files with orphaned versions more than 7 days old',
-              'cmdir':'desc',
-              'cmlimit':'500'
-    req = api.APIRequest(site, params) #Set the API request
-    res = req.query(False) #Send the API request and store the result in res
-    touse = pagelist.listFromQuery(site, res['query']['categorymembers']) #Make a list
+    params = {
+        'action': 'query',
+        'list': 'categorymembers',
+        #'cmtitle':'Category:RonBotTest',
+        'cmnamespace': '6',
+        'cmtitle': 'Category:Non-free files with orphaned versions more than 7 days old',
+        'cmdir': 'desc',
+        'cmlimit': '500'
+    }
+    res = site.api(**params)  # Send the API request and store the result
+    touse = [site.pages[page['title']] for page in res['query']['categorymembers']]
     pnt(f"findpages: found {len(touse)} pages to process")
     return touse
 
 def versiontodelete(page):
-    params = {'action':'query',
-              'prop':'imageinfo',
-              'titles':page.name,
-              'iiprop':'archivename',
-              'iilimit':'max',
-              'formatversion':'2',
-              }
+    params = {
+        'action': 'query',
+        'prop': 'imageinfo',
+        'titles': page.name,
+        'iiprop': 'archivename',
+        'iilimit': 'max',
+        'formatversion': '2',
+    }
     pnt(f"versiontodelete: fetching revisions for {page.unprefixedtitle}")
-    req = api.APIRequest(site, params)
-    res = req.query(False)
+    res = site.api(**params)
     whattodel = res['query']['pages'][0]['imageinfo'][1:] #Go into specifics, ignore first result (DatBot's reduced version)
     for result in whattodel:
          if 'filehidden' in result:
@@ -57,17 +58,17 @@ def versiontodelete(page):
 
 def deletefile(page, version, token):
     params = {
-              'action':'revisiondelete',
-              'target':page.name,
-              'type':'oldimage',
-              'hide':'content',
-              'ids':version,
-              'token':token,
-              'reason':'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])',
-              }
+        'action': 'revisiondelete',
+        'target': page.name,
+        'type': 'oldimage',
+        'hide': 'content',
+        'ids': version,
+        'token': token,
+        'reason': 'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])',
+    }
     pnt(f"deletefile: deleting {page.unprefixedtitle} revision {version}")
-    api.APIRequest(site, params).query() #Actually delete it  (DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
-    return #Stop the function, ready for the next
+    site.post('revisiondelete', **params)  # Actually delete it  (DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
+    return  # Stop the function, ready for the next
 
 def abusechecks(page):
     params = {'action':'query',
