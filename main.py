@@ -153,7 +153,8 @@ def main():
                     allow_bots(pagetext, "DeltaQuadBot")
                     skipcategories = site.pages['User:RonBot/1/FreeCategory'].text().split("|")
                     check = abusechecks(filep) #Check if file was uploaded 2 days ago
-                    if any(skipcategory in pagepage.getCategories() for skipcategory in skipcategories):
+                    page_categories = {cat.name for cat in pagepage.categories()}
+                    if any(skipcategory in page_categories for skipcategory in skipcategories):
                         pnt("One of the potentially free categories were found. Skipping.")
                         check="free"
                     if check == "No":
