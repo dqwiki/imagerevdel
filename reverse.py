@@ -7,7 +7,7 @@ site.login(login.username, login.password)
 
 DEBUG = True  # Set to False to silence debug output
 
-# routine to autoswitch some of the output - as filenames in, say, filep.unprefixedtitle have accented chars!
+# routine to autoswitch some of the output - as filenames in, say, filep.page_title have accented chars!
 def pnt(s):
     if not DEBUG:
         return
@@ -42,7 +42,7 @@ def versiontodelete(page):
         'iilimit': 'max',
         'formatversion': '2',
     }
-    pnt(f"versiontodelete: fetching revisions for {page.unprefixedtitle}")
+    pnt(f"versiontodelete: fetching revisions for {page.page_title}")
     res = site.api(**params)
     whattodel = res['query']['pages'][0]['imageinfo'][1:] #Go into specifics, ignore first result (DatBot's reduced version)
     for result in whattodel:
@@ -66,7 +66,7 @@ def deletefile(page, version, token):
         'token': token,
         'reason': 'Orphaned non-free file revision(s) deleted per [[WP:F5|F5]] ([[User:AmandaNP/Imagerevdel/Run|disable]])',
     }
-    pnt(f"deletefile: deleting {page.unprefixedtitle} revision {version}")
+    pnt(f"deletefile: deleting {page.page_title} revision {version}")
     site.post('revisiondelete', **params)  # Actually delete it  (DO NOT UNCOMMENT UNTIL BOT IS APPROVED)
     return  # Stop the function, ready for the next
 
@@ -135,9 +135,9 @@ def main():
         try: #Try to delete the old revision(s)
             if filep.name == "Category:Non-free files with orphaned versions more than 7 days old needing human review": #Skip category thing
                 continue
-            pnt(f"Processing {filep.unprefixedtitle}")
+            pnt(f"Processing {filep.page_title}")
             todelete = versiontodelete(filep)
-            pnt(f"Found {len(todelete)} revisions for {filep.unprefixedtitle}")
+            pnt(f"Found {len(todelete)} revisions for {filep.page_title}")
             firstversion="yes"
             for version in todelete:
                 version = re.sub(r'([^!]*)!.*', r'\1', version['archivename'])
